@@ -1,0 +1,4 @@
+(library
+ (name virtualtavern)
+ (libraries unix)
+ (modules util drink person manager))
