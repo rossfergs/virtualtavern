@@ -1,3 +1,10 @@
+(*
+
+ THIS FILE IN UNUSED.
+ To be compiled, add 'tavern' to the 'libraries' tag in dune
+
+*)
+
 type tile =
   | Grass of { symbol : char; occupant : Person.t option }
   | Floor of Person.t option
