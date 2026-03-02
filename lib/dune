@@ -1,4 +1,4 @@
 (library
  (name virtualtavern)
- (libraries unix)
- (modules util drink person manager))
+ (libraries unix minttea)
+ (modules futil drink person tavern manager renderer))
