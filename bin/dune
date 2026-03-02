@@ -1,4 +1,4 @@
 (executable
  (public_name virtualtavern)
  (name main)
- (libraries virtualtavern))
+ (libraries virtualtavern minttea))
