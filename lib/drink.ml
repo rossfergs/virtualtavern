@@ -1,17 +1,28 @@
-type potency = High | Medium | Low | None
+type potency = int
 type t = { name : string; size : int; potency : potency }
 
-let[@warning "-6"] random_drink () =
-  let choice = Random.int_in_range ~min:0 ~max:3 in
-  match choice with
-  | 0 -> { name = "water"; size = 3; potency = None }
-  | 1 -> { name = "beer"; size = 3; potency = Low }
-  | 2 -> { name = "wine"; size = 2; potency = Medium }
-  | 3 -> { name = "shot"; size = 1; potency = High }
-  | _ -> { name = "unknown drink (ERROR)"; size = 1; potency = None }
+let random_name () =
+
+        let adj_list = Futil.read_lines "lib/resources/words/adjectives/adjectives.txt" in
+        let noun_list = Futil.read_lines "lib/resources/words/nouns/nouns.txt" in
+        let a = Random.int (List.length adj_list) in
+        let n = Random.int (List.length noun_list) in
+        (String.trim (List.nth adj_list a)) ^ " " ^ (String.trim (List.nth noun_list n))
+        
+
+
+let [@warning "-6"] random_drink () =     
+  { 
+  name = random_name (); 
+  size = Random.int(100); 
+  potency = Random.int(100) 
+  }
+
+let drinks = List.init 5 (fun _ -> random_drink ())
 
 let verb_drink (drink : t) : string =
-  match drink.name with
-  | "beer" | "shot" -> "a " ^ drink.name
-  | "wine" | "water" -> "some " ^ drink.name
-  | _ -> "an unknown drink (ERROR)"
+  "a " ^ drink.name
+
+let select_drink ()  = 
+        List.nth drinks (Random.int (List.length drinks))   
+
