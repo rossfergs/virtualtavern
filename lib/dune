@@ -1,6 +1,6 @@
 (library
  (name virtualtavern)
- (libraries stdlib unix)
+ (libraries unix minttea)
  (modules futil drink person manager))
 
 (install
