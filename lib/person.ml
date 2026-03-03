@@ -19,7 +19,7 @@ let update_activity (person : t) =
   | Travelling { destination = Floor; distance = 0 } ->
       { person with current_activity = Socialising }
   | Travelling { destination = Bar; distance = 0 } ->
-      { person with current_activity = Drinking (Drink.random_drink ()) }
+      { person with current_activity = Drinking (Drink.select_drink ()) }
   | Travelling { destination; distance } ->
       {
         person with
