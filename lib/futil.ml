@@ -3,7 +3,8 @@ module Int_map = Map.Make (Int)
 
 let fatal (message : string) : unit =
   print_string "[FATAL] ";
-  print_endline message
+  print_endline message;
+  exit 1
 
 let debug (message : string) : unit =
   print_string "[BEDUG] ";
