@@ -7,4 +7,4 @@
 (install
  (section lib)
  (files resources/words/adjectives/adjectives.txt
- resourcse/words/nouns/nouns.txt))
+ resources/words/nouns/nouns.txt))
