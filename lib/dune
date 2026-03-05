@@ -1,10 +1,13 @@
 (library
  (name virtualtavern)
  (libraries unix minttea)
-
- (modules futil drink conversation person manager))
+ (modules futil manager topic drink conversation person))
 
 (install
  (section lib)
- (files resources/words/adjectives/adjectives.txt
- resources/words/nouns/nouns.txt))
+ (files
+  resources/words/adjectives/adjectives.txt
+  resources/words/nouns/nouns.txt
+  resources/words/adverbs/adverbs.txt
+  resources/words/verbs/verbs.txt))
+

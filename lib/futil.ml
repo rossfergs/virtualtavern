@@ -27,8 +27,5 @@ let ( -- ) s e =
   in
   range_impl s []
 
-
-let read_lines filename : string list  =
-       In_channel.with_open_text filename In_channel.input_lines
-
-
+let read_lines filename : string list =
+  In_channel.with_open_text filename In_channel.input_lines

@@ -48,14 +48,16 @@ let rec manage_no_conversation (person : Person.t)
   | None ->
       let do_nothing_chance = Random.int 3 in
       if do_nothing_chance = 0 then None
-      else
+      else 
+              let peoples_names = List.map (fun p -> p.Person.name) other_people in
         manage_conversation
           {
             person with
             current_activity =
               Socialising
                 (Some
-                   (Seeking_Conversation { target = None; topic = "something" }));
+                   (Seeking_Conversation { target = None; topic = Topic.generate_topic peoples_names }));
+                   
           }
           other_people
 
@@ -137,6 +139,6 @@ let rec manage_people people acc : unit =
   | [] -> manage_people (List.rev acc) []
 
 let run_manager () : unit =
-  let people = make_person_list 25 in
+  let people = make_person_list 5 in
   if List.length people = 0 then Futil.fatal "Population cannot be 0"
   else manage_people people []
