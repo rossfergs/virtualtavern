@@ -3,7 +3,7 @@ exception Not_A_Conversation
 type location = Bar | Floor
 
 type activity =
-  | Drinking of Drink.t
+  | Drinking of { drink : Drink.t; remaining_turns : int }
   | Socialising of Conversation.t option
   | Travelling of { destination : location; distance : int }
   | None
@@ -56,18 +56,36 @@ let handle_socialising (person : t) (conv_info : Conversation.t option) : t =
               }
       | Seeking_Conversation _ -> person)
 
+let get_pace drink =
+  let random_pace = Random.int 3 in
+  match drink.size with
+  | Shot -> 0
+  | Small -> 
+      (match random_pace with
+      | 0 -> 5
+      | 1 -> 3
+      | _ -> 1
+      )
+  | 2 
+  | _ -> 1
+
 let update_activity (person : t) =
   match person.current_activity with
   | Travelling { destination = Floor; distance = 0 } ->
       { person with current_activity = Socialising None }
   | Travelling { destination = Bar; distance = 0 } ->
-      { person with current_activity = Drinking (Drink.select_drink ()) }
+      let chosen_drink = Drink.select_drink () in
+      {
+        person with
+        current_activity =
+          Drinking { drink = chosen_drink; remaining_turns = 3 };
+      }
   | Travelling { destination; distance } ->
       {
         person with
         current_activity = Travelling { destination; distance = distance - 1 };
       }
-  | Drinking { name = _; size = 0; potency = _ } ->
+  | Drinking { drink = _; remaining_turns = 0 } ->
       let another_drink_chance = Random.int_in_range ~min:0 ~max:100 in
       let new_thirst = if person.thirst > 100 then 100 else person.thirst in
       if another_drink_chance <= person.thirst then
@@ -77,9 +95,10 @@ let update_activity (person : t) =
           thirst = new_thirst;
         }
       else
+        let chosen_drink = Drink.select_drink ();
         {
           person with
-          current_activity = Drinking (Drink.random_drink ());
+          current_activity = Drinking { ;
           thirst = new_thirst;
         }
   | Drinking drink ->
@@ -113,7 +132,7 @@ let message_string_of_person (person : t) : string =
         person.name "floor" distance
   | Drinking drink ->
       Printf.sprintf "%s is drinking %s, thirst is %d" person.name
-        (Drink.verb_drink drink) person.thirst
+        ("a" ^ drink.name) person.thirst
   | Socialising conv_info ->
       Conversation.message_string_of_conversation conv_info person.name
         person.thirst
