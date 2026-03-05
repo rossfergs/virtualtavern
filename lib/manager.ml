@@ -139,6 +139,6 @@ let rec manage_people people acc : unit =
   | [] -> manage_people (List.rev acc) []
 
 let run_manager () : unit =
-  let people = make_person_list 25 in
+  let people = make_person_list 5 in
   if List.length people = 0 then Futil.fatal "Population cannot be 0"
   else manage_people people []
