@@ -1,6 +1,15 @@
 module String_map = Map.Make (String)
 module Int_map = Map.Make (Int)
 
+module Int_tuple = struct
+  type t = int * int
+
+  let compare (x0, y0) (x1, y1) =
+    match Stdlib.compare x0 x1 with 0 -> Stdlib.compare y0 y1 | c -> c
+end
+
+module Int_tuple_map = Map.Make (Int_tuple)
+
 let fatal (message : string) : unit =
   print_string "[FATAL] ";
   print_endline message;
@@ -27,8 +36,5 @@ let ( -- ) s e =
   in
   range_impl s []
 
-
-let read_lines filename : string list  =
-       In_channel.with_open_text filename In_channel.input_lines
-
-
+let read_lines filename : string list =
+  In_channel.with_open_text filename In_channel.input_lines
