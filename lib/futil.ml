@@ -15,10 +15,12 @@ let info (message : string) : unit =
   print_endline message
 
 let rand_from_list = function
+  | [] -> raise (Invalid_argument "empty list given to Futil.rand_from_list")
+  | ls -> List.nth ls (Random.int (List.length ls))
+
+let rand_from_list_opt = function
   | [] -> None
-  | [ _ ] -> None
-  | ls ->
-      Some (List.nth ls (Random.int_in_range ~min:0 ~max:(List.length ls - 1)))
+  | ls -> Some (List.nth ls (Random.int (List.length ls)))
 
 let ( -- ) s e =
   let rec range_impl current acc =
