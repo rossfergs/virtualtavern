@@ -16,12 +16,12 @@ let random_name () =
     Futil.read_lines "lib/resources/words/adjectives/adjectives.txt"
   in
   let noun_list = Futil.read_lines "lib/resources/words/nouns/nouns.txt" in
-  let a = Random.int (List.length adj_list) in
-  let n = Random.int (List.length noun_list) in
-  String.trim (List.nth adj_list a) ^ " " ^ String.trim (List.nth noun_list n)
+  String.trim (Futil.rand_from_list adj_list)
+  ^ " "
+  ^ String.trim (Futil.rand_from_list noun_list)
 
 let random_drink () =
   { name = random_name (); size = random_size (); potency = Random.int 100 }
 
 let drinks = List.init 5 (fun _ -> random_drink ())
-let select_drink () = List.nth drinks (Random.int (List.length drinks))
+let select_drink () = Futil.rand_from_list drinks
