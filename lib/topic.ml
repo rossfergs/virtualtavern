@@ -1,4 +1,6 @@
-let generate_person_topic people = Futil.rand_from_list people
+let generate_person_topic people =
+  let n = Random.int (List.length people) in
+  List.nth people n
 
 let verbs =
   Futil.read_lines "lib/resources/words/verbs/verbs.txt"
@@ -16,9 +18,4 @@ let generate_other_topic () =
   adverb ^ " " ^ verb
 
 let generate_topic people =
-  match Random.int 2 with
-  | 0 -> generate_person_topic people
-  | 1 -> generate_other_topic ()
-  | _ ->
-      Futil.fatal "Unreachable path in Topic.generate_topic";
-      raise (Failure "see logs for more details")
+  Futil.rand_from_list [ generate_person_topic people; generate_other_topic () ]
