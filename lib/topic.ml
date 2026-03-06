@@ -1,6 +1,4 @@
-let generate_person_topic people =
-  let n = Random.int (List.length people) in
-  List.nth people n
+let generate_person_topic people = Futil.rand_from_list people
 
 let verbs =
   Futil.read_lines "lib/resources/words/verbs/verbs.txt"
