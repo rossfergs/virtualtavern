@@ -13,10 +13,8 @@ let adverbs =
   |> List.filter (fun s -> String.ends_with ~suffix:"ly" s)
 
 let generate_other_topic () =
-  let nv = Random.int (List.length verbs) in
-  let na = Random.int (List.length adverbs) in
-  let verb = List.nth verbs nv in
-  let adverb = List.nth adverbs na in
+  let verb = Futil.rand_from_list verbs in
+  let adverb = Futil.rand_from_list adverbs in
   adverb ^ " " ^ verb
 
 let generate_topic people =
