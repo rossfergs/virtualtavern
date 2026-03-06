@@ -23,5 +23,5 @@ let random_name () =
 let random_drink () =
   { name = random_name (); size = random_size (); potency = Random.int 100 }
 
-let drinks = List.init 5 (fun _ -> random_drink ())
-let select_drink () = Futil.rand_from_list drinks
+let drinks = lazy (List.init 5 (fun _ -> random_drink ()))
+let select_drink () = Futil.rand_from_list (Lazy.force drinks)
