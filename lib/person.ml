@@ -3,7 +3,7 @@ exception Not_A_Conversation
 type location = Bar | Floor
 
 type activity =
-  | Drinking of Drink.t
+  | Drinking of { drink : Drink.t; remaining_turns : int }
   | Socialising of Conversation.t option
   | Travelling of { destination : location; distance : int }
   | None
@@ -15,7 +15,7 @@ let make_person name = { name; current_activity = None; thirst = 50 }
 let handle_socialising (person : t) (conv_info : Conversation.t option) : t =
   match conv_info with
   | None ->
-      let new_thirst = person.thirst - Random.int_in_range ~min:1 ~max:10 in
+      let new_thirst = person.thirst - Random.int 11 in
       if new_thirst <= 0 then
         {
           person with
@@ -26,7 +26,7 @@ let handle_socialising (person : t) (conv_info : Conversation.t option) : t =
   | Some conv_info -> (
       match conv_info with
       | In_Conversation { partner; topic; length } ->
-          let new_thirst = person.thirst - Random.int_in_range ~min:1 ~max:10 in
+          let new_thirst = person.thirst - Random.int 1 in
           if new_thirst <= 0 then
             {
               person with
@@ -36,9 +36,7 @@ let handle_socialising (person : t) (conv_info : Conversation.t option) : t =
           else if length = 10 then
             { person with current_activity = Socialising None }
           else
-            let conv_end_chance =
-              Random.int_in_range ~min:0 ~max:(10 - length)
-            in
+            let conv_end_chance = Random.int (11 - length) in
             if conv_end_chance = 0 then
               {
                 person with
@@ -56,20 +54,34 @@ let handle_socialising (person : t) (conv_info : Conversation.t option) : t =
               }
       | Seeking_Conversation _ -> person)
 
+let get_pace drink =
+  let open Drink in
+  match drink.size with
+  | Shot -> 1
+  | Small -> ( match Random.int 3 with 0 -> 5 | 1 -> 3 | _ -> 1)
+  | Medium -> ( match Random.int 3 with 0 -> 5 | 1 -> 3 | _ -> 1)
+  | Large -> ( match Random.int 3 with 0 -> 5 | 1 -> 3 | _ -> 1)
+
 let update_activity (person : t) =
   match person.current_activity with
   | Travelling { destination = Floor; distance = 0 } ->
       { person with current_activity = Socialising None }
   | Travelling { destination = Bar; distance = 0 } ->
-      { person with current_activity = Drinking (Drink.select_drink ()) }
+      let chosen_drink = Drink.select_drink () in
+      {
+        person with
+        current_activity =
+          Drinking
+            { drink = chosen_drink; remaining_turns = get_pace chosen_drink };
+      }
   | Travelling { destination; distance } ->
       {
         person with
         current_activity = Travelling { destination; distance = distance - 1 };
       }
-  | Drinking { name = _; size = 0; potency = _ } ->
-      let another_drink_chance = Random.int_in_range ~min:0 ~max:100 in
+  | Drinking { drink = _; remaining_turns = 0 } ->
       let new_thirst = if person.thirst > 100 then 100 else person.thirst in
+      let another_drink_chance = Random.int 101 in
       if another_drink_chance <= person.thirst then
         {
           person with
@@ -77,22 +89,25 @@ let update_activity (person : t) =
           thirst = new_thirst;
         }
       else
+        let chosen_drink = Drink.select_drink () in
         {
           person with
-          current_activity = Drinking (Drink.random_drink ());
+          current_activity =
+            Drinking
+              { drink = chosen_drink; remaining_turns = get_pace chosen_drink };
           thirst = new_thirst;
         }
   | Drinking drink ->
-      let new_thirst = person.thirst + Random.int_in_range ~min:10 ~max:50 in
+      let new_thirst = person.thirst + Random.int_in_range ~min:10 ~max:30 in
       {
         person with
-        current_activity = Drinking { drink with size = drink.size - 1 };
+        current_activity =
+          Drinking { drink with remaining_turns = drink.remaining_turns - 1 };
         thirst = new_thirst;
       }
   | Socialising conv_info -> handle_socialising person conv_info
   | _ ->
-      let decision = Random.int_in_range ~min:0 ~max:1 in
-      if decision = 0 then
+      if Random.int 2 = 0 then
         {
           person with
           current_activity = Travelling { destination = Bar; distance = 3 };
@@ -111,9 +126,9 @@ let message_string_of_person (person : t) : string =
   | Travelling { destination = Floor; distance } ->
       Printf.sprintf "%s is walking to the %s, distance remaining is %d"
         person.name "floor" distance
-  | Drinking drink ->
-      Printf.sprintf "%s is drinking %s, thirst is %d" person.name
-        (Drink.verb_drink drink) person.thirst
+  | Drinking { drink; remaining_turns } ->
+      Printf.sprintf "%s is drinking %s, thirst is %d, remaining turns is %d"
+        person.name ("a" ^ drink.name) person.thirst remaining_turns
   | Socialising conv_info ->
       Conversation.message_string_of_conversation conv_info person.name
         person.thirst

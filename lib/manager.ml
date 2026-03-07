@@ -1,15 +1,8 @@
 module State = Futil.String_map
 
 let find_target people : Person.t option =
-  let choice =
-    Futil.rand_from_list (List.filter Person.is_socialising people)
-  in
-  let () =
-    match choice with
-    | None -> Futil.debug "None"
-    | Some p -> Futil.debug (Printf.sprintf "Choice: %s" p.name)
-  in
-  choice
+  let idle_people = List.filter Person.is_socialising people in
+  if idle_people = [] then None else Futil.rand_from_list_opt idle_people
 
 let update_state key func state =
   let node = State.find key state in
@@ -49,13 +42,18 @@ let rec manage_no_conversation (person : Person.t)
       let do_nothing_chance = Random.int 3 in
       if do_nothing_chance = 0 then None
       else
+        let peoples_names = List.map (fun p -> p.Person.name) other_people in
         manage_conversation
           {
             person with
             current_activity =
               Socialising
                 (Some
-                   (Seeking_Conversation { target = None; topic = "something" }));
+                   (Seeking_Conversation
+                      {
+                        target = None;
+                        topic = Topic.generate_topic peoples_names;
+                      }));
           }
           other_people
 
@@ -137,6 +135,6 @@ let rec manage_people people acc : unit =
   | [] -> manage_people (List.rev acc) []
 
 let run_manager () : unit =
-  let people = make_person_list 25 in
+  let people = make_person_list 5 in
   if List.length people = 0 then Futil.fatal "Population cannot be 0"
   else manage_people people []
