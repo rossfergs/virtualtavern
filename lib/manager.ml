@@ -1,14 +1,8 @@
-module State = Futil.String_map
+let log = Futil.Logging.make_logger __MODULE__
 
 let find_target people : Person.t option =
   let idle_people = List.filter Person.is_socialising people in
   if idle_people = [] then None else Futil.rand_from_list_opt idle_people
-
-let update_state key func state =
-  let node = State.find key state in
-  let new_node = func node in
-  let new_state = State.add key new_node state in
-  new_state
 
 let make_person_list (length : int) : Person.t list =
   let open Futil in
@@ -65,7 +59,7 @@ and manage_conversation (person : Person.t) (other_people : Person.t list) :
     match person.current_activity with
     | Socialising (Some c) -> c
     | _ ->
-        Futil.fatal "INCORRECT LOGIC IN CONVERSATION MANAGER";
+        log `fatal "INCORRECT LOGIC IN CONVERSATION MANAGER";
         raise (Failure "See logs for more details")
   in
   match conv_info with
@@ -109,7 +103,7 @@ and manage_conversation (person : Person.t) (other_people : Person.t list) :
 let rec manage_people people acc : unit =
   match people with
   | person :: remaining_people ->
-      Futil.info (Person.message_string_of_person person);
+      log `info (Person.message_string_of_person person);
       Unix.sleepf 0.10;
       let updated_person =
         match Person.update_activity person with
@@ -136,5 +130,5 @@ let rec manage_people people acc : unit =
 
 let run_manager () : unit =
   let people = make_person_list 5 in
-  if List.length people = 0 then Futil.fatal "Population cannot be 0"
+  if List.length people = 0 then log `fatal "Population cannot be 0"
   else manage_people people []
