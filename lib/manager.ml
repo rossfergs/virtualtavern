@@ -1,15 +1,22 @@
-let log = Futil.Logging.make_logger __MODULE__
+let log = Futil.Logging.log ~tag:__MODULE__ ~min_level:`info
 
 let find_target people : Person.t option =
   let idle_people = List.filter Person.is_socialising people in
   if idle_people = [] then None else Futil.rand_from_list_opt idle_people
 
-let make_person_list (length : int) : Person.t list =
-  let open Futil in
-  let range = 1 -- (length + 1) in
+let initial_setup (length : int) : Person.t list * Tavern.t =
+  log `debug "making initial setup";
+  let tavern = Tavern.init_tavern in
+  let range = Futil.(1 -- (length + 1)) in
   let names = List.map (fun num -> "Person " ^ string_of_int num) range in
-  let people = List.map (fun name -> Person.make_person name) names in
-  people
+  log `debug "creating list of people";
+  let people =
+    List.map
+      (fun name -> Person.make_person name (Tavern.random_edge_tile tavern))
+      names
+  in
+  let tavern = Tavern.add_people people tavern in
+  (people, tavern)
 
 let pick_conversation (conversations : Person.t list) : (string * string) option
     =
@@ -100,11 +107,98 @@ and manage_conversation (person : Person.t) (other_people : Person.t list) :
       in
       if List.length active_conversations = 0 then None else Some in_conv
 
-let rec manage_people people acc : unit =
+let rec handle_travel person tavern : Person.t * Tavern.t =
+  let open Person in
+  match person.current_activity with
+  | Travelling { destination; path = None } ->
+      log `debug
+        (Printf.sprintf "handling %s's travel: no path present" person.name);
+      let destination_coords =
+        match destination with
+        | "floor" -> Tavern.random_free_floor tavern
+        | "bar" -> Tavern.random_stool tavern
+        | d ->
+            log `error ("impossible destination in handle_travel: " ^ d);
+            Tavern.random_free_floor tavern
+      in
+      let new_activity =
+        Travelling
+          {
+            destination;
+            path =
+              Some
+                ( destination_coords,
+                  Tavern.find_path person.location destination_coords tavern );
+          }
+      in
+      handle_travel { person with current_activity = new_activity } tavern
+  | Travelling { destination; path = Some (dest_coord, coord :: path) } ->
+      log `debug
+        (Printf.sprintf "handling %s's travel: non-empty path present"
+           person.name);
+      if
+        Tavern.is_occupied (Futil.Int_tuple_map.find dest_coord tavern)
+        || Tavern.is_occupied (Futil.Int_tuple_map.find coord tavern)
+      then
+        ( {
+            person with
+            current_activity = Travelling { destination; path = None };
+          },
+          tavern )
+      else
+        (*
+      match Futil.Int_tuple_map.find dest_coord tavern with
+      | Floor (None, _) | Grass { occupant = None; _ } ->
+          *)
+        let updated_tavern = Tavern.move_person person coord tavern in
+        ( {
+            person with
+            location = coord;
+            current_activity =
+              Travelling { destination; path = Some (dest_coord, path) };
+          },
+          updated_tavern )
+        (*
+      | _ ->
+          let destination_coords =
+            match destination with
+            | "floor" -> Tavern.random_free_floor tavern
+            | "bar" -> Tavern.random_stool tavern
+            | d ->
+                log `fatal ("impossible path in handle_travel: " ^ d);
+                Tavern.random_free_floor tavern
+          in
+          handle_travel
+            {
+              person with
+              current_activity =
+                Travelling
+                  {
+                    destination;
+                    path =
+                      Some
+                        ( destination_coords,
+                          Tavern.find_path person.location destination_coords
+                            tavern );
+                  };
+            }
+            tavern)
+        *)
+  | Travelling { destination; path = Some (_, []) } ->
+      log `debug
+        (Printf.sprintf "handling %s's travel: empty path present" person.name);
+      ( {
+          person with
+          current_activity = Travelling { destination; path = None };
+        },
+        tavern )
+  | _ -> (person, tavern)
+
+let rec manage_people people acc tavern : unit =
   match people with
   | person :: remaining_people ->
       log `info (Person.message_string_of_person person);
-      Unix.sleepf 0.10;
+      Unix.sleepf 0.05;
       let updated_person =
         match Person.update_activity person with
         | { current_activity = Socialising None; _ } as p ->
@@ -125,10 +219,14 @@ let rec manage_people people acc : unit =
             }
         | p -> p
       in
-      manage_people remaining_people (updated_person :: acc)
-  | [] -> manage_people (List.rev acc) []
+      let updated_person, updated_tavern =
+        handle_travel updated_person tavern
+      in
+      manage_people remaining_people (updated_person :: acc) updated_tavern
+  | [] -> manage_people (List.rev acc) [] tavern
 
 let run_manager () : unit =
-  let people = make_person_list 5 in
+  let people, tavern = initial_setup 5 in
+  log `debug "starting manager...";
   if List.length people = 0 then log `fatal "Population cannot be 0"
-  else manage_people people []
+  else manage_people people [] tavern

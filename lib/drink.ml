@@ -1,7 +1,7 @@
 type size = Shot | Small | Medium | Large
 type t = { name : string; size : size; potency : int }
 
-let log = Futil.Logging.make_logger __MODULE__
+let log = Futil.Logging.log ~tag:__MODULE__
 
 let random_size () =
   match Random.int 4 with
