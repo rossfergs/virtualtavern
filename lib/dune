@@ -1,7 +1,7 @@
 (library
  (name virtualtavern)
- (libraries unix minttea)
- (modules futil manager topic drink conversation person))
+ (libraries unix minttea leaves)
+ (modules futil astar tavern manager topic drink conversation person renderer))
 
 (install
  (section lib)

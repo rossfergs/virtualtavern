@@ -1,6 +1,8 @@
 type size = Shot | Small | Medium | Large
 type t = { name : string; size : size; potency : int }
 
+let log = Futil.Logging.log ~tag:__MODULE__ ~min_level:`error
+
 let random_size () =
   match Random.int 4 with
   | 0 -> Shot
@@ -8,7 +10,7 @@ let random_size () =
   | 2 -> Medium
   | 3 -> Large
   | _ ->
-      Futil.fatal "Unreachable path in Drink.random_size";
+      log `fatal "Unreachable path in Drink.random_size";
       raise (Failure "See Logs For Details")
 
 let random_name () =

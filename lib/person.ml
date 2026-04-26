@@ -1,58 +1,62 @@
-exception Not_A_Conversation
+exception Not_In_Conversation
 
-type location = Bar | Floor
+let log = Futil.Logging.log ~tag:__MODULE__ ~min_level:`info
 
 type activity =
   | Drinking of { drink : Drink.t; remaining_turns : int }
-  | Socialising of Conversation.t option
-  | Travelling of { destination : location; distance : int }
+  | Socialising of Conversation.t
+  | Travelling of {
+      destination : string;
+      path : ((int * int) * (int * int) list) option;
+    }
   | None
 
-type t = { name : string; current_activity : activity; thirst : int }
+type t = {
+  name : string;
+  current_activity : activity;
+  location : int * int;
+  thirst : int;
+}
 
-let make_person name = { name; current_activity = None; thirst = 50 }
+let make_person name location =
+  { name; current_activity = None; location; thirst = 50 }
 
-let handle_socialising (person : t) (conv_info : Conversation.t option) : t =
+let handle_socialising (person : t) (conv_info : Conversation.t) : t =
   match conv_info with
-  | None ->
+  | Seeking_Conversation _ -> person
+  | No_Conversation ->
       let new_thirst = person.thirst - Random.int 11 in
       if new_thirst <= 0 then
         {
           person with
-          current_activity = Travelling { destination = Bar; distance = 2 };
+          current_activity = Travelling { destination = "bar"; path = None };
           thirst = 0;
         }
       else { person with thirst = new_thirst }
-  | Some conv_info -> (
-      match conv_info with
-      | In_Conversation { partner; topic; length } ->
-          let new_thirst = person.thirst - Random.int 1 in
-          if new_thirst <= 0 then
-            {
-              person with
-              current_activity = Travelling { destination = Bar; distance = 2 };
-              thirst = 0;
-            }
-          else if length = 10 then
-            { person with current_activity = Socialising None }
-          else
-            let conv_end_chance = Random.int (11 - length) in
-            if conv_end_chance = 0 then
-              {
-                person with
-                current_activity = Socialising None;
-                thirst = new_thirst;
-              }
-            else
-              {
-                person with
-                current_activity =
-                  Socialising
-                    (Some
-                       (In_Conversation { partner; topic; length = length + 1 }));
-                thirst = new_thirst;
-              }
-      | Seeking_Conversation _ -> person)
+  | In_Conversation { partner; topic; length } -> (
+      let new_thirst = person.thirst - Random.int 7 in
+      match (new_thirst, length) with
+      | _, _ when new_thirst <= 0 ->
+          {
+            person with
+            thirst = 0;
+            current_activity = Travelling { destination = "bar"; path = None };
+          }
+      | _, 10 -> { person with current_activity = Socialising No_Conversation }
+      | _, _ when Random.int (11 - length) = 0 ->
+          {
+            person with
+            current_activity = Socialising No_Conversation;
+            thirst = new_thirst;
+          }
+      | _, _ ->
+          {
+            person with
+            current_activity =
+              Socialising
+                (In_Conversation { partner; topic; length = length + 1 });
+            thirst = new_thirst;
+          })
 
 let get_pace drink =
   let open Drink in
@@ -64,28 +68,24 @@ let get_pace drink =
 
 let update_activity (person : t) =
   match person.current_activity with
-  | Travelling { destination = Floor; distance = 0 } ->
-      { person with current_activity = Socialising None }
-  | Travelling { destination = Bar; distance = 0 } ->
-      let chosen_drink = Drink.select_drink () in
-      {
-        person with
-        current_activity =
-          Drinking
-            { drink = chosen_drink; remaining_turns = get_pace chosen_drink };
-      }
-  | Travelling { destination; distance } ->
-      {
-        person with
-        current_activity = Travelling { destination; distance = distance - 1 };
-      }
+  | Travelling { destination; path = Some (c, _) } when person.location = c ->
+      log `debug "reached destination";
+      let new_activity =
+        match destination with
+        | "bar" ->
+            Drinking { drink = Drink.select_drink (); remaining_turns = 3 }
+        | "floor" -> Socialising No_Conversation
+        | _ -> None
+      in
+      { person with current_activity = new_activity }
+  | Travelling _ -> person
   | Drinking { drink = _; remaining_turns = 0 } ->
       let new_thirst = if person.thirst > 100 then 100 else person.thirst in
       let another_drink_chance = Random.int 101 in
       if another_drink_chance <= person.thirst then
         {
           person with
-          current_activity = Travelling { destination = Floor; distance = 2 };
+          current_activity = Travelling { destination = "floor"; path = None };
           thirst = new_thirst;
         }
       else
@@ -106,26 +106,36 @@ let update_activity (person : t) =
         thirst = new_thirst;
       }
   | Socialising conv_info -> handle_socialising person conv_info
-  | _ ->
-      if Random.int 2 = 0 then
+  | None ->
+      if Random.bool () then
         {
           person with
-          current_activity = Travelling { destination = Bar; distance = 3 };
+          current_activity = Travelling { destination = "bar"; path = None };
         }
       else
         {
           person with
-          current_activity = Travelling { destination = Floor; distance = 3 };
+          current_activity = Travelling { destination = "floor"; path = None };
         }
+
+(*let string_of_person person = *)
+(*  let open Futil.Format in *)
+(*  match person with *)
+(*  | { current_activity = Socialising (Seeking_Conversation)} -> *)
+(*  | _ -> "@" *)
 
 let message_string_of_person (person : t) : string =
   match person.current_activity with
-  | Travelling { destination = Bar; distance } ->
-      Printf.sprintf "%s is walking to the %s, distance remaining is %d"
-        person.name "bar" distance
-  | Travelling { destination = Floor; distance } ->
-      Printf.sprintf "%s is walking to the %s, distance remaining is %d"
-        person.name "floor" distance
+  | Travelling { destination; path = Some (_, (x, y) :: _) } ->
+      Printf.sprintf "%s is walking to the %s, coordinate (%d, %d)" person.name
+        destination x y
+  | Travelling { destination; path = Some (_, []) } ->
+      Printf.sprintf
+        "%s is walking to the %s, but doesnt have a plan on how to get there"
+        person.name destination
+  | Travelling { destination; path = None } ->
+      Printf.sprintf "%s is walking to the %s, they dont know where to go!"
+        person.name destination
   | Drinking { drink; remaining_turns } ->
       Printf.sprintf "%s is drinking %s, thirst is %d, remaining turns is %d"
         person.name ("a" ^ drink.name) person.thirst remaining_turns
@@ -141,13 +151,12 @@ let is_socialising = function
 let are_players_conversing p1 p2 =
   match p2 with
   | {
-      current_activity =
-        Socialising (Some (In_Conversation { partner = name; _ }));
+      current_activity = Socialising (In_Conversation { partner = name; _ });
       _;
     }
   | {
       current_activity =
-        Socialising (Some (Seeking_Conversation { target = Some name; _ }));
+        Socialising (Seeking_Conversation { target = Some name; _ });
       _;
     }
     when p1.name = name ->
@@ -155,12 +164,8 @@ let are_players_conversing p1 p2 =
   | _ -> false
 
 let get_conversation_topic = function
-  | {
-      current_activity = Socialising (Some (Seeking_Conversation { topic; _ }));
-      _;
-    } ->
+  | { current_activity = Socialising (Seeking_Conversation { topic; _ }); _ } ->
       topic
-  | { current_activity = Socialising (Some (In_Conversation { topic; _ })); _ }
-    ->
+  | { current_activity = Socialising (In_Conversation { topic; _ }); _ } ->
       topic
-  | _ -> raise Not_A_Conversation
+  | _ -> raise Not_In_Conversation
