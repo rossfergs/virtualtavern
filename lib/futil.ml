@@ -179,6 +179,10 @@ module Format = struct
 end
 
 module Logging = struct
+  let logs_on = ref true
+  let set_logging_on b = logs_on := b
+  let previous_logs = ref []
+
   type level = [ `trace | `debug | `info | `error | `fatal ]
 
   let module_name_prefix = "Virtualtavern__"
@@ -190,52 +194,42 @@ module Logging = struct
       String.sub name length_of_prefix (String.length name - length_of_prefix)
 
   let log ?(min_level : level = `info) ?(tag = "") (level : level) msg =
-    let level_to_int (l : level) =
-      match l with
-      | `fatal -> 10
-      | `error -> 8
-      | `info -> 5
-      | `debug -> 3
-      | `trace -> 1
-    in
-    let () =
-      if level_to_int min_level > level_to_int level then ()
-      else
-        let print_fmt =
-         fun level_tag ->
-          Printf.printf "%s |%s| %s\n" level_tag (trim_module_name tag) msg
-        in
-        match level with
-        | `fatal ->
-            print_fmt
-              (Format.format_string
-                 [ BG_Colour Red; FG_Colour Black ]
-                 "[FATAL]");
-            exit 1
-        | `error -> print_fmt (Format.format_string [ FG_Colour Red ] "[ERROR]")
-        | `info ->
-            print_fmt (Format.format_string [ FG_Colour Green ] "[INFO] ")
-        | `debug ->
-            print_fmt (Format.format_string [ FG_Colour Yellow ] "[BEDUG]")
-        | `trace ->
-            print_fmt (Format.format_string [ FG_Colour Grey ] "[TRACE]")
-    in
-    flush stdout
-
-  (*  let make_logger module_name = log ~tag *)
-
-  let fatal (message : string) : unit =
-    print_string "[FATAL] ";
-    print_endline message;
-    exit 1
-
-  let debug (message : string) : unit =
-    print_string "[BEDUG] ";
-    print_endline message
-
-  let info (message : string) : unit =
-    print_string "[INFO] ";
-    print_endline message
+    if not !logs_on then ()
+    else
+      let level_to_int (l : level) =
+        match l with
+        | `fatal -> 10
+        | `error -> 8
+        | `info -> 5
+        | `debug -> 3
+        | `trace -> 1
+      in
+      let msg =
+        if level_to_int min_level > level_to_int level then ""
+        else
+          let print_fmt =
+           fun level_tag ->
+            Printf.sprintf "%s |%s| %s\n" level_tag (trim_module_name tag) msg
+          in
+          match level with
+          | `fatal ->
+              print_fmt
+                (Format.format_string
+                   [ BG_Colour Red; FG_Colour Black ]
+                   "[FATAL]")
+          | `error ->
+              print_fmt (Format.format_string [ FG_Colour Red ] "[ERROR]")
+          | `info ->
+              print_fmt (Format.format_string [ FG_Colour Green ] "[INFO]")
+          | `debug ->
+              print_fmt (Format.format_string [ FG_Colour Yellow ] "[BEDUG]")
+          | `trace ->
+              print_fmt (Format.format_string [ FG_Colour Grey ] "[TRACE]")
+      in
+      print_string msg;
+      if List.length !previous_logs >= 10 then previous_logs := []
+      else previous_logs := msg :: !previous_logs;
+      flush stdout
 end
 
 module Int_tuple_map = struct
@@ -267,7 +261,7 @@ let range ?(inc = 1) s e =
   in
   range_impl s []
 
-let ( -- ) s e = range s e
+let ( -- ) = range
 
 let read_lines filename : string list =
   In_channel.with_open_text filename In_channel.input_lines
@@ -280,3 +274,99 @@ let quicksort comparitor list =
         quicksort_impl left @ [ x ] @ quicksort_impl right
   in
   quicksort_impl list
+
+module Windower = struct
+  type window = {
+    lines : string list;
+    x : int;
+    y : int;
+    width : int;
+    height : int;
+  }
+
+  type screen = { windows : window list; max_width : int; max_height : int }
+
+  let create_window input x y =
+    let lines = String.split_on_char '\n' input in
+    let width =
+      List.fold_left
+        (fun acc n -> if String.length n > acc then String.length n else acc)
+        0 lines
+    in
+    { lines; width; x; y; height = List.length lines }
+
+  let empty =
+    let run_cmd cmd =
+      let ic = Unix.open_process_in cmd in
+      let result = input_line ic in
+      close_in ic;
+      result
+    in
+    let _ = run_cmd "clear" in
+    {
+      windows = [];
+      max_width = (int_of_string @@ run_cmd "tput cols") / 2;
+      max_height = (int_of_string @@ run_cmd "tput lines") - 1;
+    }
+
+  let add w s =
+    let windows = s.windows in
+    { s with windows = w :: windows }
+
+  let get_char_from_window w x y =
+    let rel_x, rel_y = (x - w.x, y - w.y) in
+    if rel_x >= w.width || rel_y >= w.height || rel_x < 0 || rel_y < 0 then None
+    else try Some (String.get (List.nth w.lines rel_y) rel_x) with _ -> None
+
+  let get_furthest_point screen =
+    List.fold_left
+      (fun acc w -> if w.x + w.width > acc then w.x + w.width else acc)
+      0 screen.windows
+
+  let make_line screen line =
+    let stringify = List.fold_left (fun acc c -> acc ^ String.make 1 c) "" in
+    (*    let find_character windows x y =  *)
+    (*          List.fold_left *)
+    (*            (fun acc w -> *)
+    (*              let ch = get_char_from_window w col line in *)
+    (*              if ch = None then acc else ch) *)
+    (*            None windows *)
+    (*      if col >= screen.max_width || col >= furthest_point then *)
+    (*        stringify (List.rev acc) *)
+    (*      else  *)
+    let chars =
+      List.fold_left
+        (fun acc col ->
+          match
+            List.fold_left
+              (fun acc w ->
+                let ch = get_char_from_window w col line in
+                if ch = None then acc else ch)
+              None screen.windows
+          with
+          | None -> '#' :: acc
+          | Some ch -> ch :: acc)
+        []
+        (0 -- get_furthest_point screen)
+    in
+    stringify (List.rev chars)
+
+  let render_screen screen =
+    let is_window_on_line window line =
+      line >= window.y && line <= window.y + window.height
+    in
+    let last_line =
+      List.fold_left
+        (fun acc w -> if w.y + w.height > acc then w.y + w.height else acc)
+        0 screen.windows
+    in
+    let rec impl lines_acc line =
+      if line >= screen.max_height || line >= last_line then
+        List.fold_left (fun acc l -> acc ^ l ^ "\n") "" (List.rev lines_acc)
+      else if
+        List.for_all (fun w -> not (is_window_on_line w line)) screen.windows
+      then impl lines_acc (line + 1)
+      else impl (make_line screen line :: lines_acc) (line + 1)
+    in
+    impl [] 0
+end

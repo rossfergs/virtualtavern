@@ -1,4 +1,4 @@
-let log = Futil.Logging.log ~tag:__MODULE__ ~min_level:`info
+let log = Futil.Logging.log ~tag:__MODULE__ ~min_level:`error
 
 type obj = Chair | Stool | Table | Door | Bar
 
@@ -51,12 +51,25 @@ let string_of_obj obj =
 let string_of_tile tile =
   let open Futil.Format in
   match tile with
+  | Grass { occupant = Some _; _ } -> "@"
   | Grass { symbol; _ } ->
       format_string [ Italic; FG_Colour Green ] (String.make 1 symbol)
-  | Floor (Some _, _) -> format_string [ FG_Colour White ] "@"
+  | Floor (Some _, _) -> "@"
   | Floor (None, Some obj) -> string_of_obj obj
   | Floor (None, None) -> format_string [ FG_Colour Brown ] "+"
   | Wall -> format_string [ Bold; BG_Colour Grey; FG_Colour Black ] "+"
+
+let string_of_tavern tavern =
+  let tavern_list =
+    List.map
+      (fun c -> List.map (fun idk -> Futil.Int_tuple_map.find idk tavern) c)
+      all_coords
+  in
+  List.fold_left
+    (fun acc r ->
+      (acc ^ List.fold_left (fun acc tile -> acc ^ string_of_tile tile) "" r)
+      ^ "\n")
+    "" tavern_list
 
 let print_tavern (tavern : t) : unit =
   let open Futil in
@@ -248,16 +261,22 @@ let init_tavern : t =
       (get_filled_rect_coords (top_x + 1, top_y + 8) 8 1)
     |> List.filter (fun ((x, _), _) -> Futil.Math.relative_even x (top_x + 1))
   in
-  (*
-    log `debug "testing A-Star...";
-    let path = Astar.find_path (1, 1) (10, 20) in
-    log `debug "Path found...";
-    let path = List.map (fun c -> (c, Floor (None, Some Stool))) path in
-  *)
   log `debug "putting it all together";
   let open Futil.Int_tuple_map in
-  empty |> add_list grass |> add_list walls |> add_list floor |> add_list bar
-  |> add_list doors |> add_list tac1 |> add_list tac2 |> add_list tac3
-  |> add_list stools
-(*  |> Int_tuple_map.add (mid_x, mid_y) *)
-(*       (Floor (Some (Person.make_person "test" (mid_x, mid_y)), None)) *)
+  (* empty |> add_list grass |> add_list walls |> add_list floor |> add_list bar *)
+  (* |> add_list doors |> add_list tac1 |> add_list tac2 |> add_list tac3 *)
+  (* |> add_list stools |> add_list path *)
+  let final_tavern =
+    List.fold_left
+      (fun acc c -> add_list c acc)
+      empty
+      [ grass; walls; floor; bar; doors; tac1; tac2; tac3; stools ]
+  in
+  log `debug "testing A-Star...";
+  let path =
+    find_path (max_x - 1, max_y - 1) (max_x / 2, max_y / 2) final_tavern
+  in
+  log `debug
+    (Printf.sprintf "Path found... length of path = %d" (List.length path));
+  let path = List.map (fun c -> (c, Floor (None, Some Stool))) path in
+  add_list path final_tavern

@@ -1,6 +1,6 @@
 module Int_tuple_set = Set.Make (Futil.Tuple.Make (Int) (Int))
 
-let log = Futil.Logging.log ~tag:__MODULE__ ~min_level:`trace
+let log = Futil.Logging.log ~tag:__MODULE__ ~min_level:`error
 let h = Futil.Math.get_linear_distance
 
 let g (start_x, start_y) (next_x, next_y) =
@@ -50,13 +50,15 @@ let find_path ?(is_valid = fun _n -> true) start_node end_node =
               with
               | [], cs -> a_star_impl path ns cs
               | p, cs -> (p, cs)))
-    | n :: ns -> (
-        let sx, sy = n in
+    | node :: nodes -> (
+        let sx, sy = node in
         log `trace (Printf.sprintf "(%d, %d) -> (%d, %d)" sx sy ex ey);
-        if n = end_node then (List.rev (n :: path), closed_set)
+        if node = end_node then (List.rev (node :: path), closed_set)
         else
-          match a_star_impl path [ n ] (Int_tuple_set.add n closed_set) with
-          | [], cs -> a_star_impl path ns cs
+          match
+            a_star_impl path [ node ] (Int_tuple_set.add node closed_set)
+          with
+          | [], cs -> a_star_impl path nodes cs
           | p, cs -> (p, cs))
   in
   match a_star_impl [] [ start_node ] Int_tuple_set.empty with

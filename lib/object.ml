@@ -1,1 +1,0 @@
-type t = Door | Chair
