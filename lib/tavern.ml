@@ -119,9 +119,9 @@ let move_person person dest_coord tavern : t =
   | Floor (Some _, obj1), Floor (None, obj2) ->
       add person.location (Floor (None, obj1)) tavern
       |> add dest_coord (Floor (Some person, obj2))
-  | Grass { symbol; occupant = Some _ }, Floor (None, obj2) ->
+  | Grass { symbol; occupant = Some _ }, Floor (None, obj) ->
       add person.location (Grass { symbol; occupant = None }) tavern
-      |> add dest_coord (Floor (Some person, obj2))
+      |> add dest_coord (Floor (Some person, obj))
   | Floor (Some _, obj), Grass { symbol; occupant = None } ->
       add person.location (Floor (None, obj)) tavern
       |> add dest_coord (Grass { symbol; occupant = Some person })
@@ -185,7 +185,7 @@ let find_path (sx, sy) (ex, ey) t =
     (sx, sy) (ex, ey)
 
 (* INCREDIBLY bullshit initial tavern *)
-let init_tavern : t =
+let init_tavern () : t =
   (*  let open Futil in *)
   log `debug "starting initialisation";
   let top_x, top_y = (max_x / 4, max_y / 4) in

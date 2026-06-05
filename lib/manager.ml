@@ -9,7 +9,7 @@ let find_target people : Person.t option =
 
 let initial_setup (length : int) : Person.t list * Tavern.t =
   log `debug "making initial setup";
-  let tavern = Tavern.init_tavern in
+  let tavern = Tavern.init_tavern () in
   let names =
     List.map
       (fun num -> "Person " ^ string_of_int num)
